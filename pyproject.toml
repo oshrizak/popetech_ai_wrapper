@@ -15,10 +15,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+# The MCP server requires Python 3.10+ (a constraint of the `mcp` SDK), so it
+# lives in its own optional group rather than the base dependencies.
+mcp = ["mcp>=1.2"]
 
 [project.scripts]
 pope-tech = "pope_tech.cli:main"
 ptq = "pope_tech.query_cli:main"
+pope-tech-mcp = "pope_tech.mcp_server:main"
 
 [tool.setuptools]
 packages = ["pope_tech"]
