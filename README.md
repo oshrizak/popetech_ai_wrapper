@@ -21,7 +21,7 @@ documented or not.
   before it leaves your machine.
 - **CLI** — `python -m pope_tech ...`, read-only by default.
 
-## Two layers
+## Three layers
 
 1. **`pope_tech` wrapper** — the engine: typed client, every endpoint, retries,
    pagination, safe-mode. Use it when *building* something.
@@ -29,6 +29,10 @@ documented or not.
    query cockpit built for answering open-ended questions fast: fuzzy
    name→ID resolution, payload trimming, cross-org fan-out, and in-tool
    filter/sort/top-N. This is the layer an assistant drives to answer questions.
+3. **MCP server** (`pope_tech.mcp_server`) — the same agent layer exposed as
+   [Model Context Protocol](https://modelcontextprotocol.io) tools, so an
+   MCP-capable assistant can drive it natively. See
+   [Use as an MCP server](#use-as-an-mcp-server).
 
 ## Agent query interface (`ptq`)
 
@@ -75,6 +79,39 @@ with Agent() as a:                       # read-only; Agent(writable=True) to ch
             sort_by="latest_scan_errors_per_page", top=10,
             fields=["name", "latest_scan_errors_per_page"])
 ```
+
+## Use as an MCP server
+
+The same agent layer is available as an
+[MCP](https://modelcontextprotocol.io) server, so an MCP-capable assistant
+(Claude Desktop, Cursor, Continue, Zed, …) can inspect Pope Tech data natively —
+no shelling out to the CLI and parsing text. The `mcp` SDK needs Python 3.10+,
+so it's an optional extra (the base library still supports 3.9):
+
+```bash
+pip install -e ".[mcp]"
+pope-tech-mcp            # stdio transport; read-only by default
+```
+
+Tools: `catalog`, `list_orgs`, `org_summary`, `all_orgs_summary`,
+`find_websites`, `website_overview`, `aggregates`, `query_resource`, and a gated
+`raw_request`. Auth is unchanged (`POPE_TECH_API_KEY`, `.env` auto-loaded).
+Writes stay off unless you start the server with `POPE_TECH_MCP_WRITABLE=1`.
+
+Example Claude Desktop config (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "pope-tech": {
+      "command": "pope-tech-mcp",
+      "env": { "POPE_TECH_API_KEY": "your-bearer-token" }
+    }
+  }
+}
+```
+
+Full setup and tool reference: [`docs/MCP.md`](docs/MCP.md).
 
 ## Install
 
@@ -209,6 +246,10 @@ the safe-mode guard:
 python -m pytest -q     # 18 passed
 ```
 
+The MCP server has its own offline tests (`tests/test_mcp_server.py`) covering
+tool registration, error mapping, and the read-only guard; they run when the
+`[mcp]` extra is installed and skip otherwise.
+
 ## Safety notes
 
 - The wrapper never triggers scans, crawls, creates, updates, deletes, or
@@ -230,8 +271,12 @@ pope_tech/
   projection.py      # dot-path pluck / project / filter / sort
   agent.py           # Agent facade: fuzzy resolve, trim, fan-out, query()
   query_cli.py       # ptq - the agent query CLI
+  mcp_server.py      # MCP server exposing the Agent as MCP tools
 verify_endpoints.py  # live read-only endpoint verification
 tests/
   test_smoke.py      # offline tests: transport, errors, pagination, safe-mode
   test_agent.py      # offline tests: projection + Agent facade
+  test_mcp_server.py # offline tests: MCP tool registration + guards
+docs/
+  MCP.md             # MCP server setup + client config
 ```
